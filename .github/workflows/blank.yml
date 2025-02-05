@@ -1,0 +1,44 @@
+name: Deploy Keycloak
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  deploy-keycloak:
+    runs-on: ubuntu-latest
+
+    services:
+      keycloak:
+        image: jboss/keycloak:latest
+        ports:
+          - 8080:8080
+        options: --health-cmd="curl --silent --fail http://localhost:8080/auth/realms/master" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v1
+
+      - name: Start Keycloak Server
+        run: |
+          docker run -d --name keycloak -p 8080:8080 jboss/keycloak:latest
+
+      - name: Wait for Keycloak to be ready
+        run: |
+          sleep 20 # ให้เวลา Keycloak startup เสร็จ
+
+      - name: Perform API Tests on Keycloak
+        run: |
+          curl --silent --fail http://localhost:8080/auth/realms/master
+
+      - name: Clean up Docker
+        run: |
+          docker stop keycloak
+          docker rm keycloak
